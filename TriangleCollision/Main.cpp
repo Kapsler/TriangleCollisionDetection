@@ -10,7 +10,7 @@ namespace config
 	const bool vsync = false;
 	const size_t triangleCount = 300;
 	const size_t rows = 10;
-	const size_t triangleMaxSize = 30;
+	const size_t triangleMaxSize = 50;
 }
 
 namespace Scene
@@ -32,7 +32,7 @@ namespace Scene
 		{
 			dontOmptimizeAway = StaticXorShift::GetNumber();
 		}
-		printf("Warmup: %d", dontOmptimizeAway);
+		printf("Warmup: %zu", dontOmptimizeAway);
 
 
 		//Setup Rendering Stuff
@@ -45,7 +45,7 @@ namespace Scene
 		//Generating Geometry
 		triangles.reserve(config::triangleCount);
 
-		int trianglesPerRow = glm::ceil((float)config::triangleCount / (float)(config::rows));
+		int trianglesPerRow = (int)glm::ceil((float)config::triangleCount / (float)(config::rows));
 
 		float xOffset = (float)config::width / (float)(trianglesPerRow + 2);
 		float yOffset = (float)config::height / ((float)config::rows + 2);
