@@ -9,7 +9,7 @@ namespace config
 	const size_t height = 900;
 	const bool vsync = false;
 	const size_t triangleCount = 300;
-	const size_t rows = 20;
+	const size_t rows = 10;
 	const size_t triangleMaxSize = 30;
 }
 
@@ -25,6 +25,16 @@ namespace Scene
 
 	void SetupScene()
 	{
+		size_t dontOmptimizeAway = 0;
+
+		//Warmup RNG
+		for(size_t i = 0u; i < 1000000; ++i)
+		{
+			dontOmptimizeAway = StaticXorShift::GetNumber();
+		}
+		printf("Warmup: %d", dontOmptimizeAway);
+
+
 		//Setup Rendering Stuff
 		drawCircle.setOrigin(drawCircle.getRadius(), drawCircle.getRadius());
 		drawCircle.setFillColor(sf::Color::Transparent);
@@ -125,6 +135,31 @@ namespace Scene
 		window.draw(triArray);
 	}
 
+	static void DrawTriangle(sf::RenderWindow& window, const TriangleCollision::Triangle& triangle, sf::Color color)
+	{
+		sf::VertexArray triArray;
+		triArray.setPrimitiveType(sf::PrimitiveType::Triangles);
+
+		triArray.append(sf::Vertex(sf::Vector2f(triangle.points[0].x, triangle.points[0].y), color));
+		triArray.append(sf::Vertex(sf::Vector2f(triangle.points[1].x, triangle.points[1].y), color));
+		triArray.append(sf::Vertex(sf::Vector2f(triangle.points[2].x, triangle.points[2].y), color));
+
+		window.draw(triArray);
+	}
+
+	static void DrawTriangleOutline(sf::RenderWindow& window, const TriangleCollision::Triangle& triangle, sf::Color color)
+	{
+		sf::VertexArray outlineArray;
+		outlineArray.setPrimitiveType(sf::PrimitiveType::LineStrip);
+
+		outlineArray.append(sf::Vertex(sf::Vector2f(triangle.points[0].x, triangle.points[0].y), color));
+		outlineArray.append(sf::Vertex(sf::Vector2f(triangle.points[1].x, triangle.points[1].y), color));
+		outlineArray.append(sf::Vertex(sf::Vector2f(triangle.points[2].x, triangle.points[2].y), color));
+		outlineArray.append(sf::Vertex(sf::Vector2f(triangle.points[0].x, triangle.points[0].y), color));
+
+		window.draw(outlineArray);
+	}
+
 	static void DrawBoundingBox(sf::RenderWindow& window, const TriangleCollision::BoundingBox& aabb, sf::Color color)
 	{
 		sf::VertexArray boxArray;
@@ -144,10 +179,20 @@ namespace Scene
 		drawCircle.setPosition(sf::Vector2f(circle.center.x, circle.center.y));
 		drawCircle.setScale(circle.radius, circle.radius);
 		drawCircle.setOutlineThickness(1.0f / circle.radius);
+		drawCircle.setFillColor(sf::Color::Transparent);
 
 		window.draw(drawCircle);
 	}
 	
+	static void DrawPoint(sf::RenderWindow& window, const glm::vec2& p, sf::Color color)
+	{
+		drawCircle.setPosition(sf::Vector2f(p.x, p.y));
+		drawCircle.setScale(2.0f, 2.0f);
+		drawCircle.setOutlineThickness(0);
+		drawCircle.setFillColor(color);
+
+		window.draw(drawCircle);
+	}
 }
 
 
@@ -211,12 +256,7 @@ int main()
 			for(size_t j = i + 1; j < config::triangleCount; ++j)
 			{
 				const TriangleCollision::CollisiionTriangle& other = Scene::triangles[j];
-
-				if(ct.id == other.id)
-				{
-					continue;
-				}
-
+				
 				//Check Bounding Circle
 				if (!TriangleCollision::DoesBoundingCircleCollide(ct.boundingCircle, other.boundingCircle))
 				{
@@ -243,6 +283,14 @@ int main()
 
 				Scene::DrawBoundingBox(window, ct.oobb.box, sf::Color::Magenta);
 				Scene::DrawBoundingBox(window, other.oobb.box, sf::Color::Magenta);
+
+				if (!TriangleCollision::DoesGJKCollide(ct.triangle.points, other.triangle.points, 3, 3))
+				{
+					continue;
+				}
+
+				Scene::DrawTriangleOutline(window, ct.triangle, sf::Color::Red);
+				Scene::DrawTriangleOutline(window, other.triangle, sf::Color::Red);
 			}		
 			
 		}		

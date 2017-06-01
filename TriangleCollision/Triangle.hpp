@@ -1,5 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
+#include <queue>
 
 namespace TriangleCollision
 {
@@ -230,7 +231,7 @@ namespace TriangleCollision
 		return false;
 	}
 
-
+	//Returns min as x and max as y
 	static glm::vec2 ProjectOnAxis(const glm::vec2* points, size_t pointCount, glm::vec2 axis)
 	{
 		glm::vec2 result;
@@ -297,6 +298,127 @@ namespace TriangleCollision
 		ct.oobb.box.points[3] = ct.oobb.box.points[3] - ct.triangle.position + newPosition;
 
 		ct.triangle.position = newPosition;
+	}
+
+	//Outputs all points of the sum/difference in the last pointer sumPoints
+	//Output array to be the appropriate size of shape1Count * shape2Count points
+	static void MinkowskiDifference(const glm::vec2* shape1, const glm::vec2* shape2, size_t shape1Count, size_t shape2Count, glm::vec2* sumPoints)
+	{
+		size_t sumIndex = 0;
+
+		for(size_t i = 0u; i < shape1Count; ++i)
+		{
+			for (size_t j = 0u; j < shape2Count; ++j)
+			{
+				sumPoints[sumIndex] = shape1[i] - shape2[j];
+				++sumIndex;
+			}
+		}
+	}
+
+	//Gets farthest point of shape in direction
+	static glm::vec2 GetFarthestPoint(const glm::vec2* shape, size_t pointCount, const glm::vec2& direction)
+	{
+		size_t farthestIndex = 0;
+		float farthestDistance = glm::dot(shape[0], direction);
+		
+		for(size_t i = 1u; i < pointCount; ++i)
+		{
+			float temp = glm::dot(shape[i], direction);
+			if(temp > farthestDistance)
+			{
+				farthestDistance = temp;
+				farthestIndex = i;
+			}
+		}
+
+		return shape[farthestIndex];
+	}
+
+	//Gets one point in Minkowski Difference of shape1 and shape2 (farthest in direction)
+	static glm::vec2 SupportSimplex(const glm::vec2* shape1, const glm::vec2* shape2, size_t shape1Count, size_t shape2Count, const glm::vec2& direction)
+	{
+		return GetFarthestPoint(shape1, shape1Count, direction) - GetFarthestPoint(shape2, shape2Count, -direction);
+	}
+
+	static glm::vec2 TripleProduct(const glm::vec2& a, const glm::vec2& b, const glm::vec2& c)
+	{
+		return  b * glm::dot(c, a) - a * glm::dot(c, b);
+	}
+
+	static bool DoesSimplexContainOrigin(std::vector<glm::vec2>& simplex, glm::vec2& direction)
+	{
+		glm::vec2 a = simplex.back();
+		glm::vec2 ao = -a;
+
+		if(simplex.size() == 3)
+		{
+			//Triangle Case
+			glm::vec2 b = simplex[1];
+			glm::vec2 c = simplex[0];
+
+			glm::vec2 ab = b - a;
+			glm::vec2 ac = c - a;
+
+			//computer normals
+			glm::vec2 abPerp = TripleProduct(ac, ab, ab);
+			glm::vec2 acPerp = TripleProduct(ab, ac, ac);
+
+			//PlaneChecks
+			if(glm::dot(abPerp, ao) > 0)
+			{
+				//Erase C
+				simplex.erase(simplex.begin());
+				direction = abPerp;
+			} else if(glm::dot(acPerp, ao) > 0)
+			{
+				//Erase b
+				simplex.erase(simplex.begin() + 1);
+				direction = acPerp;
+			} else
+			{
+				return true;
+			}
+		}
+		else
+		{
+			//Line Case
+			glm::vec2 b = simplex.front();
+			glm::vec2 ab = b - a;
+
+			glm::vec2 abPerp = TripleProduct(ab, ao, ab);
+			direction = abPerp;
+		}
+
+		return false;
+	}
+
+	static bool DoesGJKCollide(const glm::vec2* shape1, const glm::vec2* shape2, size_t shape1Count, size_t shape2Count)
+	{
+		std::vector<glm::vec2> simplex;
+		simplex.reserve(3);
+		glm::vec2 direction(1, -1);
+
+		//Add to simplex
+		simplex.push_back(SupportSimplex(shape1, shape2, shape1Count, shape2Count, direction));
+
+		direction = -direction;
+
+		while(true)
+		{
+			simplex.push_back(SupportSimplex(shape1, shape2, shape1Count, shape2Count, direction));
+
+			if(glm::dot(simplex.back(), direction) <= 0)
+			{
+				return false;
+			}
+
+			if(DoesSimplexContainOrigin(simplex, direction))
+			{
+
+				return true;
+			}
+		}
 	}
 }
 
