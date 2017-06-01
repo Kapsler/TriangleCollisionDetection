@@ -358,54 +358,72 @@ int main()
 		//Reset Rendering stuff
 		Scene::Frame();
 
-		//Check Collisions
-		for (size_t i = 0u; i < config::triangleCount; ++i)
+		#pragma omp parallel num_threads(8)
 		{
-			const TriangleCollision::CollisiionTriangle& ct = Scene::triangles[i];
-
-			Scene::DrawTriangle(ct.triangle, ct.id);
-
-			for (size_t j = i + 1; j < config::triangleCount; ++j)
+			//Check Collisions
+			#pragma omp for
+			for (int i = 0u; i < config::triangleCount; ++i)
 			{
-				const TriangleCollision::CollisiionTriangle& other = Scene::triangles[j];
+				const TriangleCollision::CollisiionTriangle& ct = Scene::triangles[i];
 
-				//Check Bounding Circle
-				if (!TriangleCollision::DoesBoundingCircleCollide(ct.boundingCircle, other.boundingCircle))
+				#pragma omp critical
 				{
-					continue;
+					Scene::DrawTriangle(ct.triangle, ct.id);
 				}
 
-				Scene::DrawCircle(ct.boundingCircle, ct.id);
-				Scene::DrawCircle(other.boundingCircle, other.id);
-
-				//Check AABB
-				if (!TriangleCollision::DoesAABBCollide(ct.aabb, other.aabb))
+				for (int j = i + 1; j < config::triangleCount; ++j)
 				{
-					continue;
+					const TriangleCollision::CollisiionTriangle& other = Scene::triangles[j];
+
+					//Check Bounding Circle
+					if (!TriangleCollision::DoesBoundingCircleCollide(ct.boundingCircle, other.boundingCircle))
+					{
+						continue;
+					}
+
+					#pragma omp critical
+					{
+						Scene::DrawCircle(ct.boundingCircle, ct.id);
+						Scene::DrawCircle(other.boundingCircle, other.id);
+					}
+
+					//Check AABB
+					if (!TriangleCollision::DoesAABBCollide(ct.aabb, other.aabb))
+					{
+						continue;
+					}
+
+					#pragma omp critical
+					{
+						Scene::DrawAABB(ct.aabb, ct.id);
+						Scene::DrawAABB(other.aabb, ct.id);
+					}
+
+					//Check OOBB
+					if (!TriangleCollision::DoesOOBBCollide(ct.oobb, other.oobb))
+					{
+						continue;
+					}
+
+					#pragma omp critical
+					{
+						Scene::DrawOOBB(ct.oobb.box, ct.id);
+						Scene::DrawOOBB(other.oobb.box, other.id);
+					}
+					
+					//Check GJK
+					if (!TriangleCollision::DoesGJKCollide(ct.triangle.points, other.triangle.points, 3, 3))
+					{
+						continue;
+					}
+
+					#pragma omp critical
+					{
+						Scene::DrawTriangleOutline(ct.triangle, ct.id);
+						Scene::DrawTriangleOutline(other.triangle, other.id);
+					}
 				}
-
-				Scene::DrawAABB(ct.aabb, ct.id);
-				Scene::DrawAABB(other.aabb, ct.id);
-
-				//Check OOBB
-				if (!TriangleCollision::DoesOOBBCollide(ct.oobb, other.oobb))
-				{
-					continue;
-				}
-
-				Scene::DrawOOBB(ct.oobb.box, ct.id);
-				Scene::DrawOOBB(other.oobb.box, other.id);
-
-				//Check GJK
-				if (!TriangleCollision::DoesGJKCollide(ct.triangle.points, other.triangle.points, 3, 3))
-				{
-					continue;
-				}
-
-				Scene::DrawTriangleOutline(ct.triangle, ct.id);
-				Scene::DrawTriangleOutline(other.triangle, other.id);
 			}
-
 		}
 
 		//Rendering
