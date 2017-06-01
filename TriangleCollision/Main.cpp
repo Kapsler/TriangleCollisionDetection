@@ -31,12 +31,12 @@ namespace Scene
 	std::unordered_set<size_t> alreadyDrawnOutlines;
 	std::unordered_map<size_t, TriangleCollision::BoundingCirlce> circlesToDraw;
 	
-	void MovePlayer(sf::Event::MouseMoveEvent m)
+	static void MovePlayer(sf::Event::MouseMoveEvent m)
 	{
 		TriangleCollision::MoveTriangle(triangles[0], glm::vec2(m.x, m.y));
-	}
+	}	
 
-	void Frame()
+	static void Frame()
 	{
 		triangleDrawIndex = 0;
 		boxesDrawIndex = 0;
@@ -48,7 +48,7 @@ namespace Scene
 		circlesToDraw.clear();
 	}
 
-	void Render(sf::RenderWindow& window)
+	static void Render(sf::RenderWindow& window)
 	{
 		window.draw(&trianglesToDraw[0], triangleDrawIndex * 3, sf::PrimitiveType::Triangles);
 
@@ -88,7 +88,7 @@ namespace Scene
 		alreadyDrawnAABB.reserve(config::triangleCount);
 		alreadyDrawnOOBB.reserve(config::triangleCount);
 		circlesToDraw.reserve(config::triangleCount);
-		drawCircle.setOutlineThickness(0.01f);
+		drawCircle.setOutlineThickness(0.02f);
 
 		//Generating Geometry
 		triangles.reserve(config::triangleCount);
@@ -355,21 +355,20 @@ int main()
 			}
 		}
 
+		//Reset Rendering stuff
 		Scene::Frame();
 
-		window.clear();
-
-		//Check Collisions and Render Tris
-		for(size_t i = 0u; i < config::triangleCount; ++i)
+		//Check Collisions
+		for (size_t i = 0u; i < config::triangleCount; ++i)
 		{
 			const TriangleCollision::CollisiionTriangle& ct = Scene::triangles[i];
 
 			Scene::DrawTriangle(ct.triangle, ct.id);
 
-			for(size_t j = i + 1; j < config::triangleCount; ++j)
+			for (size_t j = i + 1; j < config::triangleCount; ++j)
 			{
 				const TriangleCollision::CollisiionTriangle& other = Scene::triangles[j];
-				
+
 				//Check Bounding Circle
 				if (!TriangleCollision::DoesBoundingCircleCollide(ct.boundingCircle, other.boundingCircle))
 				{
@@ -405,9 +404,12 @@ int main()
 
 				Scene::DrawTriangleOutline(ct.triangle, ct.id);
 				Scene::DrawTriangleOutline(other.triangle, other.id);
-			}		
-			
-		}		
+			}
+
+		}
+
+		//Rendering
+		window.clear();		
 
 		Scene::Render(window);
 
